@@ -116,3 +116,9 @@ docker-compose down
 ## Docker 镜像
 
 本项目的 Docker 镜像已发布到 Docker Hub。您可以使用以下命令拉取最新的镜像：
+
+
+## Action
+为了使这个工作流程正常工作，您需要在 GitHub 仓库的 Settings > Secrets 中添加两个 secrets：
+DOCKERHUB_USERNAME: 您的 Docker Hub 用户名
+DOCKERHUB_TOKEN: 您的 Docker Hub 访问令牌（不是密码）
