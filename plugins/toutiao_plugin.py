@@ -5,6 +5,8 @@ import random
 from bs4 import BeautifulSoup
 import traceback
 from playwright.sync_api import sync_playwright
+from playwright.async_api import async_playwright
+import asyncio
 
 class Plugin(BasePlugin):
     name = "toutiao"
@@ -85,7 +87,7 @@ class Plugin(BasePlugin):
                 return {
                     "custom_field": "Toutiao plugin applied",
                     "status_code": 200,  # Playwright 不直接提供状态码，所以我们假设成功
-                    "headers": dict(page.request.headers()),
+                    # "headers": dict(page.request.headers()),
                     "final_url": page.url,
                     "title": title,
                     "content_preview": content_text[:200],
@@ -99,3 +101,31 @@ class Plugin(BasePlugin):
                 "error": str(e),
                 "status_code": None
             }
+
+class ToutiaoPlugin:
+    def __init__(self):
+        self.browser = None
+        self.context = None
+
+    async def initialize(self):
+        if not self.browser:
+            playwright = await async_playwright().start()
+            self.browser = await playwright.chromium.launch()
+            self.context = await self.browser.new_context()
+
+    async def fetch_toutiao_news(self):
+        await self.initialize()
+        page = await self.context.new_page()
+        # ... 其余代码保持不变 ...
+
+    async def close(self):
+        if self.browser:
+            await self.browser.close()
+            self.browser = None
+            self.context = None
+
+# 全局实例
+toutiao_plugin = ToutiaoPlugin()
+
+async def get_toutiao_news():
+    return await toutiao_plugin.fetch_toutiao_news()
