@@ -96,3 +96,23 @@ API将返回一个JSON对象，包含以下信息：
 ## 注意
 
 应用程序默认最多跟踪10次重定向，以防止无限循环。如果需要修改这个限制，可以在`app.py`中调整`follow_redirects`函数的`max_redirects`参数。
+
+## 使用Docker运行
+
+本项目支持使用Docker运行。确保您已经安装了Docker和Docker Compose，然后按照以下步骤操作：
+
+1. 克隆此仓库
+2. 在项目根目录下运行：
+   ```
+   docker-compose up --build
+   ```
+3. 应用将在 `http://localhost:5000` 上运行
+
+要停止应用，请使用 Ctrl+C，然后运行：
+```
+docker-compose down
+```
+
+## Docker 镜像
+
+本项目的 Docker 镜像已发布到 Docker Hub。您可以使用以下命令拉取最新的镜像：

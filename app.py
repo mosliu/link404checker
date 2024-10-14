@@ -11,5 +11,4 @@ if __name__ == '__main__':
     load_plugins()
     start_cookie_update_thread()
     logger.info("启动应用程序")
-    app.run(debug=True)
-    # app.run()
+    app.run(host='0.0.0.0', port=5000, debug=True)
