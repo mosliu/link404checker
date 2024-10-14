@@ -1,9 +1,10 @@
 from .base_plugin import BasePlugin
 import re
-import requests
-from utils import site_cookies, get_site_cookies, logger, USER_AGENTS
+from utils import logger, USER_AGENTS
 import random
 from bs4 import BeautifulSoup
+import traceback
+from playwright.sync_api import sync_playwright
 
 class Plugin(BasePlugin):
     name = "toutiao"
@@ -12,100 +13,89 @@ class Plugin(BasePlugin):
         # 匹配形如 "@https://www.toutiao.com/w/1804448956217344/" 的URL
         return bool(re.match(r'^@?https?://(?:www\.)?toutiao\.com/w/\d+/?$', url))
 
-    def follow_redirect(self, url, max_redirects=5):
-        for i in range(max_redirects):
-            headers = {
-                'User-Agent': random.choice(USER_AGENTS),
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Accept-Language': 'zh-CN,zh;q=0.9',
-                'Upgrade-Insecure-Requests': '1',
-            }
-            logger.info(f"重定向 {i+1}: 请求 URL: {url}")
-            response = requests.get(url, headers=headers, cookies=site_cookies.get('toutiao'), allow_redirects=False, timeout=10)
-            logger.info(f"重定向 {i+1}: 状态码: {response.status_code}")
-            
-            if response.status_code in (301, 302, 303, 307, 308):
-                url = response.headers.get('Location')
-                if not url.startswith('http'):
-                    url = f"https://www.toutiao.com{url}"
-                logger.info(f"跟随重定向到: {url}")
-            else:
-                return response
+    def is_404(self, soup, title):
+        # 检查标题是否为 "404错误页"
+        if title == "404错误页":
+            return True
         
-        logger.warning(f"达到最大重定向次数 ({max_redirects})")
-        return response
+        # 检查是否存在包含特定错误信息的段落
+        error_tip = soup.find('p', class_='error-tips')
+        if error_tip and "抱歉，你访问的内容不存在" in error_tip.text:
+            return True
+        
+        return False
 
     def process(self, response):
-        if 'toutiao' not in site_cookies or not site_cookies['toutiao']:
-            get_site_cookies('toutiao', 'https://www.toutiao.com/')
-        
-        # 打印添加的cookies
-        if site_cookies.get('toutiao'):
-            logger.info(f"头条插件添加的cookies: {dict(site_cookies['toutiao'])}")
-        else:
-            logger.warning("头条cookies为空")
-        
         try:
-            # 跟随重定向并获取最终响应
-            final_response = self.follow_redirect(response.url)
-            
-            logger.info(f"头条插件最终请求响应状态码: {final_response.status_code}")
-            logger.info(f"头条插件最终请求响应头: {dict(final_response.headers)}")
-            logger.info(f"头条插件最终请求URL: {final_response.url}")
-            
-            # 如果状态码是404，直接返回结果
-            if final_response.status_code == 404:
-                logger.info("遇到404 Not Found，不进行内容解析")
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                context = browser.new_context(
+                    user_agent=random.choice(USER_AGENTS),
+                    viewport={'width': 1280, 'height': 720}
+                )
+                page = context.new_page()
+                
+                # 设置 referer
+                # page.set_extra_http_headers({'Referer': '@https://www.toutiao.com/'})
+
+                logger.info(f"正在使用 Playwright 访问 URL: {response.url}")
+                page.goto(response.url, wait_until='networkidle')
+                
+                logger.info(f"头条插件最终请求URL: {page.url}")
+                
+                # 解析页面内容
+                content = page.content()
+                soup = BeautifulSoup(content, 'html.parser')
+                
+                # 提取标题
+                title = soup.title.string if soup.title else "无标题"
+                logger.info(f"提取的标题: {title}")
+                
+                # 检查是否为404
+                if self.is_404(soup, title):
+                    logger.info("检测到404 Not Found")
+                    browser.close()
+                    return {
+                        "custom_field": "Toutiao plugin applied",
+                        "status_code": 404,
+                        # "headers": dict(page.request.headers()),
+                        "final_url": page.url,
+                        "title": "404 Not Found",
+                        "content_preview": "页面不存在",
+                        "full_content": "页面不存在"
+                    }
+                
+                # 尝试提取正文
+                content = soup.find('div', class_='article-content') or \
+                          soup.find('div', id='article-content') or \
+                          soup.find('div', id='main-content') or \
+                          soup.find('article')
+                
+                if content:
+                    content_text = content.get_text(strip=True)
+                    logger.info(f"成功提取正文，长度: {len(content_text)}")
+                else:
+                    content_text = "无法提取正文"
+                    logger.warning("无法找到正文内容")
+                
+                logger.info(f"头条插件提取的正文预览: {content_text[:200]}...")
+                
+                browser.close()
+                
                 return {
                     "custom_field": "Toutiao plugin applied",
-                    "cookies_added": bool(site_cookies.get('toutiao')),
-                    "status_code": 404,
-                    "headers": dict(final_response.headers),
-                    "final_url": final_response.url,
-                    "title": "404 Not Found",
-                    "content_preview": "页面不存在",
-                    "full_content": "页面不存在"
+                    "status_code": 200,  # Playwright 不直接提供状态码，所以我们假设成功
+                    "headers": dict(page.request.headers()),
+                    "final_url": page.url,
+                    "title": title,
+                    "content_preview": content_text[:200],
+                    "full_content": content_text
                 }
-            
-            # 解析页面内容
-            soup = BeautifulSoup(final_response.text, 'html.parser')
-            
-            # 提取标题
-            title = soup.title.string if soup.title else "无标题"
-            logger.info(f"提取的标题: {title}")
-            
-            # 尝试提取正文
-            content = soup.find('div', class_='article-content')
-            if not content:
-                content = soup.find('div', id='article-content')
-            if not content:
-                content = soup.find('div', id='main-content')
-            if not content:
-                content = soup.find('article')
-            
-            if content:
-                content_text = content.get_text(strip=True)
-                logger.info(f"成功提取正文，长度: {len(content_text)}")
-            else:
-                content_text = "无法提取正文"
-                logger.warning("无法找到正文内容")
-            
-            logger.info(f"头条插件提取的正文预览: {content_text[:200]}...")
-            
-            return {
-                "custom_field": "Toutiao plugin applied",
-                "cookies_added": bool(site_cookies.get('toutiao')),
-                "status_code": final_response.status_code,
-                "headers": dict(final_response.headers),
-                "final_url": final_response.url,
-                "title": title,
-                "content_preview": content_text[:200],
-                "full_content": content_text
-            }
-        except requests.RequestException as e:
-            logger.error(f"头条插件请求失败: {str(e)}")
+        except Exception as e:
+            stack_trace = traceback.format_exc()
+            logger.error(f"头条插件请求失败: {str(e)}\n堆栈跟踪:\n{stack_trace}")
             return {
                 "custom_field": "Toutiao plugin error",
                 "error": str(e),
-                "status_code": getattr(e.response, 'status_code', None)
+                "status_code": None
             }

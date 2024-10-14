@@ -3,8 +3,6 @@ import logging
 import importlib
 import os
 import random
-import threading
-import time
 from requests.exceptions import Timeout
 
 # 配置日志
@@ -15,10 +13,7 @@ logger = logging.getLogger(__name__)
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.101 Safari/537.36",
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Mobile/15E148 Safari/604.1"
 ]
 
 # 加载插件
@@ -62,17 +57,6 @@ def get_site_cookies(site_name, url):
         logger.error(f"获取{site_name}的cookie失败: {str(e)}")
         site_cookies[site_name] = None
 
-def update_site_cookies():
-    while True:
-        for site_name, url in [('toutiao', 'https://www.toutiao.com')]:
-            get_site_cookies(site_name, url)
-        time.sleep(30 * 60)  # 每30分钟更新一次
-
-def start_cookie_update_thread():
-    thread = threading.Thread(target=update_site_cookies)
-    thread.daemon = True
-    thread.start()
-
 def follow_redirects(url, max_redirects=10):
     redirects = []
     for _ in range(max_redirects):
@@ -113,13 +97,12 @@ def follow_redirects(url, max_redirects=10):
                         redirects.append(redirect_info)
                         return redirects
                     break
-
+            redirects.append(redirect_info)
             if response.status_code == 404 or plugin_result.get('status_code') == 404:
                 logger.info("遇到404 Not Found，停止跟踪")
-                redirects.append(redirect_info)
+                
                 return redirects
             elif response.is_redirect:
-                redirects.append(redirect_info)
                 new_url = response.headers.get('Location')
                 logger.info(f"检测到重定向: {response.status_code} {response.reason}")
                 logger.info(f"重定向位置: {new_url}")
