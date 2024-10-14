@@ -102,13 +102,29 @@ API将返回一个JSON对象，包含以下信息：
 本项目支持使用Docker运行。确保您已经安装了Docker和Docker Compose，然后按照以下步骤操作：
 
 1. 克隆此仓库
-2. 在项目根目录下运行：
-   ```
-   docker-compose up --build
-   ```
-3. 应用将在 `http://localhost:5000` 上运行
+2. 在项目根目录下创建一个`docker-compose.yml`文件，内容如下：
 
-要停止应用，请使用 Ctrl+C，然后运行：
+   ```yaml
+   version: '3'
+   services:
+     url-checker:
+       image: mosliu/url-checker:latest
+       ports:
+         - "5000:5000"
+       environment:
+         - FLASK_ENV=production
+   ```
+
+3. 运行以下命令启动服务：
+
+   ```
+   docker-compose up -d
+   ```
+
+4. 应用将在 `http://localhost:5000` 上运行
+
+要停止应用，请运行：
+
 ```
 docker-compose down
 ```
@@ -117,8 +133,30 @@ docker-compose down
 
 本项目的 Docker 镜像已发布到 Docker Hub。您可以使用以下命令拉取最新的镜像：
 
+```
+docker pull mosliu/url-checker:latest
+```
 
-## Action
-为了使这个工作流程正常工作，您需要在 GitHub 仓库的 Settings > Secrets 中添加两个 secrets：
-DOCKERHUB_USERNAME: 您的 Docker Hub 用户名
-DOCKERHUB_TOKEN: 您的 Docker Hub 访问令牌（不是密码）
+您也可以使用特定的版本标签：
+
+```
+docker pull mosliu/url-checker:<version>
+```
+
+其中 `<version>` 可以是：
+- 版本号（例如：`1.0.0`）
+- 版本号加构建日期（例如：`1.0.0-20230501`）
+- commit SHA
+
+## GitHub Actions
+
+本项目使用 GitHub Actions 自动构建和推送 Docker 镜像。每次推送到 master 分支时，都会触发构建过程，并生成以下标签的镜像：
+
+- `latest`
+- 版本号（从 `version.txt` 读取）
+- 版本号加构建日期
+- commit SHA
+
+## 版本控制
+
+项目的版本信息存储在 `version.txt` 文件中。当需要更新版本时，请修改这个文件。
