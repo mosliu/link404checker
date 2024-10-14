@@ -4,14 +4,20 @@ FROM python:3.9-slim
 # 设置工作目录
 WORKDIR /app
 
-# 将当前目录内容复制到容器的 /app 中
-COPY . /app
+# 复制项目文件到容器中
+COPY . /app/
 
 # 安装项目依赖
 RUN pip install --no-cache-dir -r requirements.txt
 
+# 确保脚本有执行权限
+RUN chmod +x /app/app.py
+
 # 暴露端口5000供外部访问
 EXPOSE 5000
 
+# 设置环境变量
+ENV PYTHONUNBUFFERED=1
+
 # 运行app.py
-CMD ["python", "app.py"]
+CMD ["python", "/app/app.py"]
