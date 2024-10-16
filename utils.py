@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36"
 ]
 
 # 加载插件
@@ -59,6 +59,7 @@ def get_site_cookies(site_name, url):
 
 def follow_redirects(url, max_redirects=10):
     redirects = []
+    plugin_result = {}  # 初始化 plugin_result
     for _ in range(max_redirects):
         try:
             # 随机选择一个User-Agent

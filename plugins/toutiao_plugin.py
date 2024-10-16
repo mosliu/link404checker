@@ -13,7 +13,8 @@ class Plugin(BasePlugin):
 
     def match(self, url):
         # 匹配形如 "@https://www.toutiao.com/w/1804448956217344/" 的URL
-        return bool(re.match(r'^@?https?://(?:www\.)?toutiao\.com/w/\d+/?$', url))
+        # return bool(re.match(r'^@?https?://(?:www\.)?toutiao\.com/w/\d+/?$', url))
+        return bool(re.match(r'^@?https?://(?:www\.)?toutiao\.com/[a-zA-Z0-9]+/?.*$', url))
 
     def is_404(self, soup, title):
         # 检查标题是否为 "404错误页"
