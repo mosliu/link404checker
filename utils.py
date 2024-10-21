@@ -4,6 +4,8 @@ import importlib
 import os
 import random
 from requests.exceptions import Timeout
+import json
+from config import USE_PROXY, PROXY_URL, PROXY_TIMEOUT
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -43,7 +45,7 @@ def get_site_cookies(site_name, url):
             'Accept-Encoding': 'gzip, deflate, br',
             'Upgrade-Insecure-Requests': '1',
         }
-        response = requests.get(url, headers=headers, timeout=10)
+        response = requests.get(url, headers=headers, timeout=15)
         if response.cookies:
             site_cookies[site_name] = response.cookies
             logger.info(f"成功获取{site_name}的cookie: {dict(response.cookies)}")
@@ -57,17 +59,43 @@ def get_site_cookies(site_name, url):
         logger.error(f"获取{site_name}的cookie失败: {str(e)}")
         site_cookies[site_name] = None
 
+def get_proxy():
+    try:
+        response = requests.get(PROXY_URL, timeout=PROXY_TIMEOUT)
+        if response.status_code == 200:
+            proxy_data = response.json()
+            logger.info(f"获取代理: {proxy_data['proxy']}")
+            return f"http://{proxy_data['proxy']}"
+    except Exception as e:
+        logger.error(f"获取代理失败: {str(e)}")
+    return None
+
+def make_request(url, method='GET', headers=None, allow_redirects=True, timeout=15):
+    proxy = get_proxy() if USE_PROXY else None
+    try:
+        response = requests.request(
+            method,
+            url,
+            headers=headers,
+            allow_redirects=allow_redirects,
+            timeout=timeout,
+            proxies={'http': proxy, 'https': proxy} if proxy else None
+        )
+        return response
+    except Exception as e:
+        logger.error(f"请求失败: {str(e)}")
+        raise
+
 def follow_redirects(url, max_redirects=10):
     redirects = []
-    plugin_result = {}  # 初始化 plugin_result
+    plugin_result = {}
     for _ in range(max_redirects):
         try:
-            # 随机选择一个User-Agent
             headers = {'User-Agent': random.choice(USER_AGENTS)}
             logger.info(f"使用User-Agent: {headers['User-Agent']}")
 
             logger.info(f"正在发送GET请求到 {url}")
-            response = requests.get(url, headers=headers, allow_redirects=False, timeout=10)
+            response = make_request(url, headers=headers, allow_redirects=False)
             logger.info(f"收到响应，状态码: {response.status_code}")
             logger.info(f"响应头: {dict(response.headers)}")
 

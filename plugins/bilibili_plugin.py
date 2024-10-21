@@ -1,7 +1,6 @@
 from .base_plugin import BasePlugin
 import re
-import requests
-from utils import logger, USER_AGENTS
+from utils import logger, USER_AGENTS, make_request
 import random
 from bs4 import BeautifulSoup
 
@@ -21,7 +20,7 @@ class Plugin(BasePlugin):
                 'Accept-Language': 'zh-CN,zh;q=0.9',
                 'Referer': 'https://www.bilibili.com/',
             }
-            new_response = requests.get(response.url, headers=headers, allow_redirects=True, timeout=10)
+            new_response = make_request(response.url, headers=headers, allow_redirects=True)
             logger.info(f"哔哩哔哩插件请求响应状态码: {new_response.status_code}")
             
             soup = BeautifulSoup(new_response.text, 'html.parser')
@@ -61,10 +60,10 @@ class Plugin(BasePlugin):
                 "full_content": description_text,
                 "is_deleted": False
             }
-        except requests.RequestException as e:
+        except Exception as e:
             logger.error(f"哔哩哔哩插件请求失败: {str(e)}")
             return {
                 "custom_field": "Bilibili plugin error",
                 "error": str(e),
-                "status_code": getattr(e.response, 'status_code', None)
+                "status_code": getattr(new_response, 'status_code', None) if 'new_response' in locals() else None
             }
